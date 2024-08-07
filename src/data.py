@@ -85,6 +85,31 @@ def create_reg_data_sin(rng, i_size, c_size, size_distract, input_range=10, w_sc
     seq = tf.concat([seq, zero], axis=0)
     return tf.squeeze(seq), tf.squeeze(target), (phase, amp)
 
+def create_reg_data_sin_test(rng, rng2, c_size, input_range, w_scale):
+    """Duplicate of the above - TODO."""
+
+    amp = tf.random.uniform([1], minval=0.1, maxval=0.5, seed=rng2) * w_scale
+    phase = tf.random.uniform([1], minval=0.0, maxval=1, seed=rng2) * np.pi * w_scale
+
+    x = tf.random.uniform([c_size, 1], minval=-input_range/2, maxval=input_range/2, seed=rng2)
+    x_query = tf.random.uniform([1, 1], minval=-input_range/2, maxval=input_range/2, seed=rng)
+    y_data = tf.sin(x + phase) * amp
+    y_target = tf.sin(x_query + phase) * amp
+    seq = tf.concat([x, y_data], axis=-1)
+    target = tf.concat([x_query, y_target], axis=-1)
+    y_query_init = tf.zeros_like(y_target)
+
+    zero = tf.concat([x_query, y_query_init], axis=-1)
+    seq = tf.concat([seq, zero], axis=0)
+    return tf.squeeze(seq), tf.squeeze(target), (phase, amp)
+
+def data_creator(rng, rng2, c_size, input_range, w_scale):
+    return tf.map_fn(lambda rng: create_reg_data_sin_test(rng, rng2, c_size, input_range, w_scale), rng, dtype=(tf.float32, tf.float32, (tf.float32, tf.float32)))
+
+rng = tf.random.uniform([2], seed=0)
+rng, test_rng_avg = tf.split(rng, num_or_size_splits=2)
+test_data = data_creator(tf.random.uniform([10, 2], seed=rng[0]), test_rng_avg, 10, 10, 1)
+
 def create_reg_data_classic_token(rng, i_size, c_size, size_distract, input_range, w_scale):
     rng, new_rng, new_rng2, new_rng3, new_rng4 = tf.random.experimental.stateless_split(rng, 5)
     w = tf.random.stateless_normal([i_size], seed=rng) * w_scale
